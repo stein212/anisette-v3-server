@@ -36,7 +36,7 @@ __gshared string libraryPath;
 __gshared string provisioningPath;
 
 enum brandingCode = format!"anisette-v3-server v%s"(provisionVersion);
-enum clientInfo = "<MacBookPro13,2> <macOS;13.1;22C65> <com.apple.AuthKit/1 (com.apple.dt.Xcode/3594.4.19)>";
+enum clientInfo = "<MacBookPro13,2> <macOS;13.1;22C65> <com.apple.AuthKit/1 (com.apple.akd/1.0)>";
 enum dsId = -2;
 
 __gshared ADI v1Adi;
@@ -152,9 +152,11 @@ int main(string[] args) {
 	if (!v1Adi.isMachineProvisioned(dsId)) {
 		log.info("Machine requires provisioning... ");
 
-		ProvisioningSession provisioningSession = new ProvisioningSession(v1Adi, v1Device);
-		provisioningSession.provision(dsId);
-		log.info("Provisioning done!");
+		try {
+			ProvisioningSession provisioningSession = new ProvisioningSession(v1Adi, v1Device);
+			provisioningSession.provision(dsId);
+			log.info("Provisioning done!");
+		} catch (Exception) {}
 	}
 
 	if (skipServerStartup) {
@@ -194,6 +196,12 @@ class AnisetteService {
 		log.info("[<<] anisette-v1 request");
 		auto time = Clock.currTime();
 
+		if (!v1Adi.isMachineProvisioned(dsId)) {
+			ProvisioningSession provisioningSession = new ProvisioningSession(v1Adi, v1Device);
+			provisioningSession.provision(dsId);
+			log.info("Provisioning done!");
+		}
+		
 		auto otp = v1Adi.requestOTP(dsId);
 
 		import std.conv;
@@ -340,6 +348,7 @@ class AnisetteService {
 		}
 		scope ADI adi = makeGarbageCollectedADI(libraryPath);
 		auto tmpProvisioningPath = provisioningPath.buildPath(identifier);
+		file.mkdirRecurse(tmpProvisioningPath);
 		adi.provisioningPath = tmpProvisioningPath;
 		scope(exit) {
 			if (file.exists(tmpProvisioningPath)) {
